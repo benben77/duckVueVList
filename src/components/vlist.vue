@@ -41,6 +41,7 @@ export default {
     },
   },
   data() {
+    this.list.addItems = this.addItems; // TODO: 用事件订阅更好一些
     return {
       w: 0,
       h: 0,
@@ -55,14 +56,8 @@ export default {
       return this.direction === 'y' ? height : width;
     },
   },
-  watch: {
-    list() {
-      this.setOffsetList(); // TODO: 不重新计算整个列表来优化性能
-      this.doRender();
-    },
-  },
   created() {
-    this.setOffsetList();
+    this.updateOffsetList([0], this.list);
   },
   mounted() {
     this.onResize();
@@ -78,6 +73,11 @@ export default {
     },
   },
   methods: {
+    addItems(...items) {
+      this.list.push(...items);
+      this.updateOffsetList(this.offsetList, items);
+      this.doRender();
+    },
     onResize() {
       const { width, height } = this.$el.getClientRects()[0];
       this.w = width;
@@ -86,11 +86,10 @@ export default {
       this.scrollPos = this.direction === 'y' ? scrollTop : scrollLeft;
       this.doRender();
     },
-    setOffsetList() {
-      const { list, getSize } = this;
-      const offsetList = [];
-      let lastOffset = 0;
-      offsetList.push(lastOffset);
+    updateOffsetList(oldOffsetList, list) {
+      const offsetList = oldOffsetList.slice();
+      const { getSize } = this;
+      let lastOffset = offsetList[offsetList.length - 1];
       list.forEach(x => {
         const [w, h] = getSize(x);
         lastOffset += h;
@@ -144,8 +143,6 @@ export default {
 };
 /**
  * TODO:
- * 
- * watch list change
  * 
  * 下拉刷新
  * 回到顶部

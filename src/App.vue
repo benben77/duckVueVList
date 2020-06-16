@@ -49,7 +49,7 @@ export default {
       const { list } = this;
       const data = await getItems(list.length);
       this.loading = false;
-      list.push(...data);
+      list.addItems(...data);
       if (list.length < 1000) {
         this.hasMore = true;
       } else {
