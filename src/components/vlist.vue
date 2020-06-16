@@ -24,6 +24,14 @@ export default {
       type: Array,
       required: true,
     },
+    margin: {
+      type: Number,
+      default: 0,
+    },
+    loadMoreOffset: {
+      type: Number,
+      default: 10,
+    },
     getSize: {
       type: Function,
       required: true,
@@ -47,16 +55,22 @@ export default {
       return this.direction === 'y' ? height : width;
     },
   },
+  watch: {
+    list() {
+      this.setOffsetList(); // TODO: 不重新计算整个列表来优化性能
+      this.doRender();
+    },
+  },
   created() {
     this.setOffsetList();
   },
   mounted() {
-    const { width, height } = this.$el.getClientRects()[0];
-    this.w = width;
-    this.h = height;
-    this.scrollPos = 0;
-    this.doSetVList();
-    this.setVList = throttle(this.doSetVList, 300);
+    this.onResize();
+    this.render = throttle(this.doRender, 300);
+    window.addEventListener('resize', this.onResize);
+  },
+  beforeDestroy() {
+    window.removeEventListener('resize', this.onResize);
   },
   computed: {
     listCls() {
@@ -64,6 +78,14 @@ export default {
     },
   },
   methods: {
+    onResize() {
+      const { width, height } = this.$el.getClientRects()[0];
+      this.w = width;
+      this.h = height;
+      const { scrollTop, scrollLeft } = this.$refs.list;
+      this.scrollPos = this.direction === 'y' ? scrollTop : scrollLeft;
+      this.doRender();
+    },
     setOffsetList() {
       const { list, getSize } = this;
       const offsetList = [];
@@ -79,17 +101,19 @@ export default {
     onScroll() {
       const { scrollTop, scrollLeft } = this.$refs.list;
       this.scrollPos = this.direction === 'y' ? scrollTop : scrollLeft;
-      this.setVList();
+      this.render();
     },
-    doSetVList() {
-      const start = this.scrollPos;
-      const end = this.scrollPos + this.h;
-      const { offsetList } = this;
+    doRender() {
+      const { offsetList, h, loadMoreOffset } = this;
+      let { margin } = this;
+      if (margin <= 0) margin = h;
+      const start = Math.max(this.scrollPos - margin, 0);
+      const len = this.list.length;
+      const end = Math.min(this.scrollPos + h + margin, offsetList[len]);
       let paddingTop;
       let paddingBottom;
       let startIndex;
       let endIndex;
-      const len = this.list.length;
       let current = 0;
       while (current < len) {
         const endPos = offsetList[current + 1];
@@ -107,9 +131,10 @@ export default {
         }
         current++;
       }
-      // TODO: 前后多渲染几个
+      if (endIndex == null) endIndex = len;
       paddingTop = offsetList[startIndex];
       paddingBottom = offsetList[offsetList.length - 1] - offsetList[endIndex];
+      if (paddingBottom <= loadMoreOffset) this.$emit('loadMore');
 
       this.paddingTop = paddingTop;
       this.paddingBottom = paddingBottom;
@@ -120,13 +145,12 @@ export default {
 /**
  * TODO:
  * 
- * resize事件
+ * watch list change
+ * 
+ * 下拉刷新
+ * 回到顶部
  * 横向滚动
  * 一行多于一个
- * watch list change
- * 下来刷新
- * 上拉加载
- * 回到顶部
  */
 </script>
 
